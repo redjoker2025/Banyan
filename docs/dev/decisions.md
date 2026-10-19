@@ -84,3 +84,47 @@ vendor 真实语义书写。
 在当前网络环境不可达（git 与 WebFetch 均失败）。内核语义的核对依据改为：
 vendor 源码（`vendor/cordis/src/`）+ 官方 README + 冒烟测试实证。若日后网络
 可达，按 §9 补充阅读，仅作参考、不复制业务代码。
+
+---
+
+## D6 · 用户配置服务键名 `ctx.config` → `ctx.settings`（2026-10-19，M1）
+
+**关联**：§4.2
+
+§4.2 将用户配置服务命名为 `ctx.config`，但 Cordis 内核**保留** `ctx.config`
+作为插件自身配置（root/scope 级 accessor，经 `_mixin` 注入，无法被
+`ctx.set` 覆盖，运行时写入会静默失败）。冲突不可调和，故用户配置服务改以
+**`ctx.settings`** 键注册，持久化文件仍为 `<vault>/.banyan/config.json`。
+M2 插件声明依赖时写 `inject: ["settings"]`。提示词契约的其他 key（vault /
+index / graph / logger / ai）无冲突，保持不变。
+
+---
+
+## D7 · FTS5 采用 trigram tokenizer + 短查询 LIKE 回退（2026-10-19，M1）
+
+**关联**：§4.2 `ctx.index`、M1 验收
+
+默认 `unicode61` 分词器把连续 CJK 文本当作单个 token，无法满足中文子串检索。
+索引改用 FTS5 `tokenize='trigram'`（better-sqlite3 内置支持）：查询 ≥ 3 字符时
+以短语匹配获得子串语义并可用 `snippet()`；< 3 字符（常见中文双字词）回退到
+notes 表 LIKE 查询（body 冗余存储于 notes 表以支持回退）。
+
+---
+
+## D8 · 笔记 API 以 query/body 寻址而非路径段（2026-10-19，M1）
+
+**关联**：M1 REST 设计
+
+笔记相对路径含 `/`、中文字符与 `%` 等保留字符，放进 URL 路径段会引入
+双重解码歧义。统一改为 `GET/DELETE /api/note?path=…`、`PUT /api/note`
+（body 携带 path），通配符路径方案弃用。REST 语义不变，编码行为确定。
+
+---
+
+## D9 · 启动时索引为空即全量重建（2026-10-19，M1）
+
+**关联**：§4.3「索引永远是派生物」、M1 验收「删除 index.db 后重启自动重建」
+
+`openVault()` 在 `notes` 表为空时自动执行 `rebuild()`。检测手段刻意保守
+（空即重建）而非校验和比对：M1 阶段够用且覆盖「首次打开 / index.db 被删 /
+损坏后清空」三种场景；漂移检测记录到 backlog。

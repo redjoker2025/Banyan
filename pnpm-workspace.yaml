@@ -6,3 +6,4 @@ packages:
 allowBuilds:
   esbuild: true
   better-sqlite3: true
+  vue-demi: true

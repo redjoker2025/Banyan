@@ -6,6 +6,35 @@
  * and MUST NOT import other plugins' implementations directly.
  */
 
+import type { Context } from '@cordisjs/core'
+
+declare module '@cordisjs/core' {
+  interface Context {
+    /** note read/write restricted to the vault path whitelist */
+    vault: VaultService
+    /** FTS5 full-text search over titles + bodies */
+    index: IndexService
+    /** Markdown link & wiki-link resolution */
+    graph: GraphService
+    /**
+     * user configuration persisted in `.banyan/config.json`.
+     * NOTE: the prompt names this key `ctx.config`, but Cordis reserves
+     * `ctx.config` for plugin configuration (a built-in accessor that cannot
+     * be overridden), so the user-config service is exposed as `ctx.settings`
+     * instead — see docs/dev/decisions.md D6.
+     */
+    settings: ConfigService
+    /** structured logging */
+    logger: LoggerService
+    /**
+     * RESERVED for a future provider plugin — type-only in v0 (§4.2).
+     * Accessing `ctx.ai` at runtime before a provider registers is an error
+     * by design; the type exists so plugin authors can code against it.
+     */
+    ai: AiService
+  }
+}
+
 /** Entry returned by `ctx.vault.list()` */
 export interface NoteEntry {
   /** vault-relative path with `/` separators, e.g. `notes/idea.md` */

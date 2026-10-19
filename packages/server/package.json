@@ -1,0 +1,32 @@
+{
+  "name": "@banyan/server",
+  "version": "0.1.0",
+  "description": "Banyan local server: Hono REST + WS + launcher (bin: banyan)",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "bin": {
+    "banyan": "./bin/banyan.mjs"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@banyan/core": "workspace:*",
+    "@cordisjs/core": "workspace:*",
+    "@hono/node-server": "^1.13.7",
+    "@hono/node-ws": "^1.0.8",
+    "better-sqlite3": "^11.8.1",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.6.14",
+    "tsx": "^4.19.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "typescript": "^5.7.0"
+  }
+}

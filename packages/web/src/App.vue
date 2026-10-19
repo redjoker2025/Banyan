@@ -1,0 +1,131 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useAppStore, type SearchHit } from './stores/app'
+import FileTree from './components/FileTree.vue'
+import EditorPane from './components/EditorPane.vue'
+import StatusBar from './components/StatusBar.vue'
+import VaultPicker from './components/VaultPicker.vue'
+import ContextMenu, { type MenuItem } from './components/ContextMenu.vue'
+
+const store = useAppStore()
+const menu = ref<{ x: number; y: number; items: MenuItem[] } | null>(null)
+
+onMounted(() => {
+  void store.boot()
+})
+
+function esc(s: string): string {
+  return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+}
+
+function highlight(hit: SearchHit): string {
+  // server snippets use [ ] markers; escape HTML first, then convert
+  return esc(hit.snippet ?? '').replaceAll('[', '<mark>').replaceAll(']', '</mark>')
+}
+
+function newNote(targetDir?: string) {
+  const dir = targetDir ? `${targetDir}/` : ''
+  const name = window.prompt('新建笔记（文件名，自动补 .md）', `${dir}未命名笔记.md`)
+  if (!name) return
+  const rel = name.endsWith('.md') ? name : `${name}.md`
+  void store
+    .createNote(rel.replaceAll('\\', '/').replace(/^\/+/, ''))
+    .catch((e) => window.alert(`新建失败：${e.message}`))
+}
+
+function renameNote(path: string) {
+  const newPath = window.prompt('重命名（可含相对路径）', path)
+  if (!newPath || newPath === path) return
+  void store
+    .renameNote(path, newPath.replaceAll('\\', '/'))
+    .catch((e) => window.alert(`重命名失败：${e.message}`))
+}
+
+function deleteNote(path: string) {
+  if (!window.confirm(`确定删除「${path}」？此操作会从磁盘删除文件。`)) return
+  void store.deleteNote(path).catch((e) => window.alert(`删除失败：${e.message}`))
+}
+
+async function rebuildIndex() {
+  await store.rebuildIndex()
+  window.alert('索引已全量重建')
+}
+
+function switchVault() {
+  if (store.dirty && !window.confirm('有未保存的修改，切换 vault 前会先自动保存。继续？')) return
+  void store.saveNow().then(() => {
+    store.vaultPath = null
+  })
+}
+
+function openContextMenu(event: MouseEvent, target?: string) {
+  event.preventDefault()
+  const items: MenuItem[] = target
+    ? [
+        { label: '打开', action: () => void store.openNote(target) },
+        { label: '重命名…', action: () => renameNote(target) },
+        { label: '删除…', danger: true, action: () => deleteNote(target) },
+      ]
+    : [
+        { label: '新建笔记…', action: () => newNote() },
+        { label: '重建全文索引', action: () => void rebuildIndex() },
+      ]
+  menu.value = { x: event.clientX, y: event.clientY, items }
+}
+
+function onFileContext(payload: { path: string; event: MouseEvent }) {
+  openContextMenu(payload.event, payload.path)
+}
+</script>
+
+<template>
+  <div class="layout" @click="menu = null">
+    <header class="header">
+      <span class="logo">🌳 榕 Banyan</span>
+      <button @click="newNote()">＋ 新建笔记</button>
+      <button @click="rebuildIndex()">重建索引</button>
+      <div class="spacer"></div>
+      <button v-if="store.vaultPath" @click="switchVault()">切换 Vault</button>
+    </header>
+
+    <aside class="sidebar" @contextmenu="openContextMenu($event)">
+      <div class="search">
+        <input
+          type="text"
+          placeholder="🔍 全文搜索（标题 + 正文）"
+          :value="store.searchQuery"
+          @input="store.search(($event.target as HTMLInputElement).value)"
+        />
+      </div>
+      <div v-if="store.searchQuery.trim()" class="search-results">
+        <div v-if="store.searchHits.length === 0 && !store.searching" class="empty-hint">无匹配结果</div>
+        <div v-for="hit in store.searchHits" :key="hit.path" class="search-hit" @click="store.openNote(hit.path)">
+          <div class="hit-title">{{ hit.title }}</div>
+          <div class="hit-path">{{ hit.path }}</div>
+          <div v-if="hit.snippet" class="hit-snippet" v-html="highlight(hit)"></div>
+        </div>
+      </div>
+      <FileTree v-else :files="store.files" @open="(p) => store.openNote(p)" @contextmenu-file="onFileContext" />
+    </aside>
+
+    <main class="editor-pane">
+      <EditorPane v-if="store.currentPath" />
+      <div v-else class="editor-empty">
+        <div class="big">🌳</div>
+        <div>在左侧选择或新建一条笔记开始编辑</div>
+      </div>
+    </main>
+
+    <aside class="right-panel">
+      <div class="panel-placeholder">
+        <strong>面板区</strong><br />
+        该区域预留给客户端插件的 <code>panel.right</code> 扩展点（M2 里程碑启用）。
+      </div>
+    </aside>
+
+    <StatusBar />
+
+    <VaultPicker v-if="store.vaultPath === null && !store.needsToken" />
+    <ContextMenu v-if="menu" :x="menu.x" :y="menu.y" :items="menu.items" @close="menu = null" />
+  </div>
+</template>

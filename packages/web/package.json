@@ -1,0 +1,28 @@
+{
+  "name": "@banyan/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Banyan web client: Vue 3 + CodeMirror 6",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@banyan/core": "workspace:*",
+    "@codemirror/commands": "^6.7.1",
+    "@codemirror/lang-markdown": "^6.3.1",
+    "@codemirror/language": "^6.10.6",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.35.3",
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.1.10"
+  }
+}

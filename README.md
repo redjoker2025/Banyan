@@ -4,8 +4,10 @@
 索引与日志全部可由文件夹重建；插件内核内嵌 [Cordis](https://github.com/cordiverse/cordis)
 （服务容器 + 声明式依赖注入 + 可逆副作用 + 类型化事件）。
 
-> **Status: M0（内核冒烟）已完成。** 当前仓库只包含内核契约与内核冒烟测试，
-> Web 服务端与客户端将在后续里程碑（M1/M2）中实现。
+> **Status: M1（Web 骨架）已完成。** 本地 Node 服务 + 浏览器 UI 已可用：
+> 打开 vault、新建/重命名/删除笔记、编辑自动保存（800ms 防抖，经
+> `pipeline/save` 瀑布链）、FTS5 全文搜索、双浏览器标签页 WS 实时同步、
+> 删除 index.db 重启自动重建索引。插件系统（M2）开发中。
 
 A local-first, plugin-based note-taking app for the web. Your folder of
 Markdown files is the single source of truth — the index and journals are
@@ -18,10 +20,15 @@ and residue-free uninstall).
 ```powershell
 # 环境要求：Node.js >= 22、pnpm >= 9
 pnpm install
-pnpm test   # 运行内核冒烟测试（当前阶段的主要交付物）
+pnpm test          # 内核冒烟 + 服务端测试（vault/index/pipeline）
+pnpm --filter @banyan/web build   # 构建前端静态资源（首次需要）
+pnpm web -- --vault D:\path\to\notes   # 启动并自动打开浏览器
+# 开发模式（前端热更）：pnpm dev（服务端）+ pnpm dev:web（Vite）
 ```
 
-`pnpm dev`（启动 Web 服务）将在 M1 里程碑后可用。
+服务仅绑定 `127.0.0.1:3210`（`--port` 可改）。首次启动生成随机 token 写入
+`<vault>/.banyan/config.json`，之后重启复用同一 token；浏览器需带
+`?token=` 参数（启动器已自动拼接）。
 
 ## 架构一句话
 
@@ -41,6 +48,7 @@ pnpm test   # 运行内核冒烟测试（当前阶段的主要交付物）
 - [docs/dev/vendor.md](docs/dev/vendor.md) — 内嵌 Cordis 的来源、版本与修改政策
 - [docs/dev/decisions.md](docs/dev/decisions.md) — 开发决策记录
 - docs/dev/plugin-spec.md — 插件规范（M2 里程碑落地）
+- （截图占位：M1 界面截图待补）
 
 ## License
 
