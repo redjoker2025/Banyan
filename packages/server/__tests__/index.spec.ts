@@ -66,4 +66,16 @@ describe('index service: FTS5 over title + body (M1 §6.4)', () => {
     const hits = await index.search('unique-rebuild-marker')
     expect(hits.map((h) => h.path)).toContain('kotlin.md')
   })
+
+  it('searches large bodies fast (snippet built in JS, not FTS5 snippet())', async () => {
+    // regression: FTS5 snippet() took >70s on a 420k-char CJK body
+    writeFileSync(path.join(vaultDir, 'huge.md'), `# big\n\n${'榕树测试内容。'.repeat(60_000)}`, 'utf8')
+    await index.rebuild()
+    const t0 = performance.now()
+    const hits = await index.search('榕树测试内容')
+    const elapsed = performance.now() - t0
+    expect(hits.map((h) => h.path)).toContain('huge.md')
+    expect(hits[0]?.snippet).toContain('[榕树测试内容]')
+    expect(elapsed).toBeLessThan(2000)
+  })
 })

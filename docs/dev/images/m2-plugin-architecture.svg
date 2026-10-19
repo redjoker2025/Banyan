@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8a857c"/>
+    </marker>
+    <marker id="arrowAccent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f6f4f"/>
+    </marker>
+  </defs>
+
+  <text x="480" y="34" text-anchor="middle" font-size="19" font-weight="700" fill="#2f2b26">Banyan（榕）M2 插件系统目标架构</text>
+
+  <!-- browser layer -->
+  <rect x="40" y="58" width="880" height="118" rx="12" fill="#ffffff" stroke="#e2ded6"/>
+  <text x="60" y="84" font-size="13" fill="#8a857c">浏览器 · @banyan/web（Vue 3 + Pinia + CodeMirror 6）</text>
+  <rect x="64" y="98" width="180" height="58" rx="8" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="154" y="122" text-anchor="middle" font-size="12.5" fill="#2f2b26">文件树 / 编辑器</text>
+  <text x="154" y="142" text-anchor="middle" font-size="11" fill="#8a857c">REST + WS 客户端</text>
+  <rect x="270" y="98" width="270" height="58" rx="8" fill="#e6efe9" stroke="#2f6f4f" stroke-dasharray="5 3"/>
+  <text x="405" y="122" text-anchor="middle" font-size="12.5" font-weight="600" fill="#2f6f4f">客户端插件宿主（M2 新增）</text>
+  <text x="405" y="142" text-anchor="middle" font-size="11" fill="#2f6f4f">panel.left / panel.right / statusbar / command / editor.extension</text>
+  <rect x="566" y="98" width="330" height="58" rx="8" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="731" y="122" text-anchor="middle" font-size="12.5" fill="#2f2b26">客户端插件（动态 import ESM 入口）</text>
+  <text x="731" y="142" text-anchor="middle" font-size="11" fill="#8a857c">禁用即卸载 · 扩展点全部撤销</text>
+
+  <!-- arrows browser <-> server -->
+  <line x1="300" y1="176" x2="300" y2="216" stroke="#8a857c" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="312" y="202" font-size="11" fill="#8a857c">HTTP + WebSocket（token 鉴权）</text>
+
+  <!-- server layer -->
+  <rect x="40" y="220" width="880" height="216" rx="12" fill="#ffffff" stroke="#e2ded6"/>
+  <text x="60" y="246" font-size="13" fill="#8a857c">Node 服务 · @banyan/server（Hono 4 + @hono/node-server，仅绑定 127.0.0.1）</text>
+
+  <rect x="64" y="262" width="150" height="52" rx="8" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="139" y="284" text-anchor="middle" font-size="12.5" fill="#2f2b26">REST API + WS</text>
+  <text x="139" y="302" text-anchor="middle" font-size="11" fill="#8a857c">token 中间件</text>
+
+  <!-- plugin manager -->
+  <rect x="250" y="262" width="300" height="150" rx="8" fill="#e6efe9" stroke="#2f6f4f" stroke-width="1.5"/>
+  <text x="400" y="288" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2f6f4f">@banyan/plugin-manager（M2 核心新增）</text>
+  <text x="400" y="312" text-anchor="middle" font-size="11.5" fill="#2f2b26">① manifest zod 严格校验（未知字段报错）</text>
+  <text x="400" y="332" text-anchor="middle" font-size="11.5" fill="#2f2b26">② banyanApi 兼容检查 · ESM 动态加载</text>
+  <text x="400" y="352" text-anchor="middle" font-size="11.5" fill="#2f2b26">③ 启用/安装冲突检测（provides 唯一、</text>
+  <text x="400" y="370" text-anchor="middle" font-size="11.5" fill="#2f2b26">　 inject 可满足 → E_CONFLICT 指名双方）</text>
+  <text x="400" y="394" text-anchor="middle" font-size="11.5" fill="#2f2b26">④ 权限代理：fs.globs / net.domains / exec</text>
+  <text x="400" y="404" text-anchor="middle" font-size="10.5" fill="#b4472e">　 越权 → PermissionDenied + audit.jsonl</text>
+
+  <rect x="590" y="262" width="140" height="52" rx="8" fill="#fdf3e7" stroke="#b4892e"/>
+  <text x="660" y="284" text-anchor="middle" font-size="12.5" fill="#2f2b26">audit.jsonl</text>
+  <text x="660" y="302" text-anchor="middle" font-size="11" fill="#8a857c">安全事件审计</text>
+  <line x1="550" y1="300" x2="588" y2="288" stroke="#b4892e" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="590" y="336" width="140" height="52" rx="8" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="660" y="358" text-anchor="middle" font-size="12.5" fill="#2f2b26">config.json</text>
+  <text x="660" y="376" text-anchor="middle" font-size="11" fill="#8a857c">启用列表持久化</text>
+  <line x1="550" y1="370" x2="588" y2="362" stroke="#8a857c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- official plugins -->
+  <text x="76" y="344" font-size="12" font-weight="600" fill="#2f2b26">官方插件（plugins/）</text>
+  <rect x="64" y="354" width="150" height="24" rx="6" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="139" y="370" text-anchor="middle" font-size="11" fill="#2f2b26">word-count（waterfall）</text>
+  <rect x="64" y="382" width="150" height="24" rx="6" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="139" y="398" text-anchor="middle" font-size="11" fill="#2f2b26">backlinks（ctx.graph）</text>
+  <line x1="214" y1="330" x2="248" y2="330" stroke="#2f6f4f" stroke-width="1.5" marker-end="url(#arrowAccent)"/>
+
+  <!-- kernel layer -->
+  <rect x="40" y="452" width="880" height="76" rx="12" fill="#ffffff" stroke="#e2ded6"/>
+  <text x="60" y="478" font-size="13" fill="#8a857c">插件内核 · vendor/cordis（@cordisjs/core 3.18.1 只读内嵌）+ @banyan/core 扩展</text>
+  <rect x="250" y="490" width="380" height="26" rx="6" fill="#e6efe9" stroke="#2f6f4f"/>
+  <text x="440" y="508" text-anchor="middle" font-size="11.5" fill="#2f6f4f">ctx.vault · ctx.index · ctx.graph · ctx.settings · ctx.logger · pipeline/save（waterfall）</text>
+
+  <!-- vault layer -->
+  <rect x="40" y="544" width="880" height="62" rx="12" fill="#f7f6f3" stroke="#e2ded6"/>
+  <text x="60" y="570" font-size="13" fill="#8a857c">Vault 文件夹（唯一事实来源）</text>
+  <text x="300" y="592" font-size="11.5" fill="#2f2b26">📄 *.md（纯 Markdown）</text>
+  <text x="520" y="592" font-size="11.5" fill="#2f2b26">📁 .banyan/：config.json · index.db · journal.jsonl · audit.jsonl · installed/（插件安装目录）</text>
+
+  <!-- side arrows kernel <-> vault -->
+  <line x1="480" y1="528" x2="480" y2="542" stroke="#8a857c" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+</svg>

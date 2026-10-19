@@ -93,34 +93,50 @@ export class IndexServiceImpl implements IndexService {
   async search(query: string): Promise<SearchHit[]> {
     const q = query.trim()
     if (!q) return []
+    let paths: string[] = []
     try {
       if (q.length >= 3) {
         // trigram phrase → substring semantics, works for CJK and Latin
         const phrase = `"${q.replaceAll('"', '""')}"`
-        const rows = this.db
-          .prepare(
-            `SELECT f.path AS path, n.title AS title,
-                    snippet(notes_fts, 2, '[', ']', '…', 16) AS snippet
-             FROM notes_fts f
-             JOIN notes n ON n.path = f.path
-             WHERE notes_fts MATCH ?
-             ORDER BY rank LIMIT 50`,
-          )
-          .all(phrase) as IndexRow[]
-        return rows.map((r) => ({ path: r.path, title: r.title, snippet: r.snippet ?? undefined }))
+        paths = (
+          this.db.prepare('SELECT path FROM notes_fts WHERE notes_fts MATCH ? ORDER BY rank LIMIT 50').all(phrase) as Array<{ path: string }>
+        ).map((r) => r.path)
       }
     } catch {
-      // fall through to LIKE on malformed queries
+      // malformed query → fall through to LIKE
+      paths = []
     }
-    const like = `%${q.replaceAll(/[%_]/g, (ch) => `\\${ch}`)}%`
-    const rows = this.db
-      .prepare(
-        `SELECT path, title, NULL AS snippet FROM notes
-         WHERE title LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\'
-         ORDER BY mtime DESC LIMIT 50`,
-      )
-      .all(like, like) as IndexRow[]
-    return rows.map((r) => ({ path: r.path, title: r.title }))
+    if (paths.length === 0) {
+      const like = `%${q.replaceAll(/[%_]/g, (ch) => `\\${ch}`)}%`
+      paths = (
+        this.db
+          .prepare(
+            `SELECT path FROM notes
+             WHERE title LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\'
+             ORDER BY mtime DESC LIMIT 50`,
+          )
+          .all(like, like) as Array<{ path: string }>
+      ).map((r) => r.path)
+    }
+    // FTS5 snippet() scans the whole matched document and becomes extremely
+    // slow on large notes (measured: 72s on a 420k-char CJK body), so snippets
+    // are built in JS from the stored body instead (measured: ~33ms).
+    const stmt = this.db.prepare('SELECT title, body FROM notes WHERE path = ?')
+    const lowerQ = q.toLowerCase()
+    return paths.map((p) => {
+      const row = stmt.get(p) as { title: string; body: string } | undefined
+      if (!row) return { path: p, title: p }
+      const idx = row.body.toLowerCase().indexOf(lowerQ)
+      let snippet: string | undefined
+      if (idx >= 0) {
+        const start = Math.max(0, idx - 24)
+        const end = Math.min(row.body.length, idx + q.length + 40)
+        const head = start > 0 ? '…' : ''
+        const tail = end < row.body.length ? '…' : ''
+        snippet = `${head}${row.body.slice(start, idx)}[${row.body.slice(idx, idx + q.length)}]${row.body.slice(idx + q.length, end)}${tail}`
+      }
+      return { path: p, title: row.title, snippet }
+    })
   }
 
   /** true when the index holds no notes (fresh or wiped index.db) */
