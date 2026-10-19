@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+  - plugins/*
+  - vendor/*
+
+allowBuilds:
+  esbuild: true
+  better-sqlite3: true

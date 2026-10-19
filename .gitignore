@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.banyan/
+*.log
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+.vite/

@@ -1,0 +1,21 @@
+{
+  "name": "@banyan/core",
+  "version": "0.1.0",
+  "description": "Banyan core: ctx key contracts, typed events, kernel extensions over vendored Cordis",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "echo \"(tests run from workspace root)\""
+  },
+  "dependencies": {
+    "@cordisjs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
