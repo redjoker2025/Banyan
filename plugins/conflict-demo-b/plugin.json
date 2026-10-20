@@ -1,0 +1,17 @@
+{
+  "id": "banyan.demo.conflict-b",
+  "name": "冲突演示 B",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "演示插件：同样提供 demo.greeter。与冲突演示 A 同时启用会报 E_CONFLICT（默认禁用）",
+  "inject": ["logger"],
+  "provides": ["demo.greeter"],
+  "permissions": {
+    "fs": { "globs": [] },
+    "net": { "domains": [] },
+    "exec": false
+  },
+  "entry": {
+    "server": "./server/index.ts"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "banyan.demo.net-violation",
+  "name": "越权演示",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "演示插件：声明 net.domains=[example.com] 但启动时尝试访问 api.github.com → 被拦截并写入 audit.jsonl（默认禁用）",
+  "inject": ["net", "logger"],
+  "provides": [],
+  "permissions": {
+    "fs": { "globs": [] },
+    "net": { "domains": ["example.com"] },
+    "exec": false
+  },
+  "entry": {
+    "server": "./server/index.ts"
+  }
+}

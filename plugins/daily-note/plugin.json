@@ -1,0 +1,17 @@
+{
+  "id": "banyan.daily-note",
+  "name": "今日笔记",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "注册命令「打开/创建今日笔记」，对应 YYYY-MM-DD.md",
+  "inject": [],
+  "provides": [],
+  "permissions": {
+    "fs": { "globs": [] },
+    "net": { "domains": [] },
+    "exec": false
+  },
+  "entry": {
+    "client": "./client/index.js"
+  }
+}

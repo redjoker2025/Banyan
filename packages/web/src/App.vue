@@ -1,18 +1,59 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useAppStore, type SearchHit } from './stores/app'
+import { api } from './api'
+import { installPluginHost, activateEnabledClientPlugins } from './pluginHost'
 import FileTree from './components/FileTree.vue'
 import EditorPane from './components/EditorPane.vue'
 import StatusBar from './components/StatusBar.vue'
 import VaultPicker from './components/VaultPicker.vue'
 import ContextMenu, { type MenuItem } from './components/ContextMenu.vue'
+import PluginSlot from './components/PluginSlot.vue'
+import PluginsDrawer from './components/PluginsDrawer.vue'
 
 const store = useAppStore()
 const menu = ref<{ x: number; y: number; items: MenuItem[] } | null>(null)
 
 onMounted(() => {
+  installPluginHost()
   void store.boot()
+  void activateEnabledClientPlugins()
 })
+
+// opening a vault (at startup or via the picker) activates its client plugins
+watch(
+  () => store.vaultPath,
+  (v) => {
+    if (v) void activateEnabledClientPlugins()
+  },
+)
+
+/** host context handed to client plugin extensions (live getters) */
+const pluginApi = {
+  get currentPath() {
+    return store.currentPath
+  },
+  get content() {
+    return store.content
+  },
+  get charCount() {
+    return store.content.length
+  },
+  get pluginState() {
+    return store.pluginState
+  },
+  openNote: (path: string) => store.openNote(path),
+  apiFetch: <T,>(path: string, init?: Parameters<typeof api<T>>[1]) => api<T>(path, init),
+  onNoteChange: (cb: () => void) => store.addNoteListener(cb),
+}
+
+async function runCommand(cmd: { run: (api: unknown) => void | Promise<void> }) {
+  try {
+    await cmd.run(pluginApi)
+  } catch (e) {
+    window.alert(`命令执行失败：${e instanceof Error ? e.message : String(e)}`)
+  }
+}
 
 function esc(s: string): string {
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -84,7 +125,16 @@ function onFileContext(payload: { path: string; event: MouseEvent }) {
       <span class="logo">🌳 榕 Banyan</span>
       <button @click="newNote()">＋ 新建笔记</button>
       <button @click="rebuildIndex()">重建索引</button>
+      <details v-if="store.pluginCommands.length" class="command-menu">
+        <summary>命令</summary>
+        <div class="command-list">
+          <a v-for="cmd in store.pluginCommands" :key="cmd.key" class="command-item" @click="runCommand(cmd)">
+            {{ cmd.title }}
+          </a>
+        </div>
+      </details>
       <div class="spacer"></div>
+      <button @click="store.pluginsOpen = true">插件</button>
       <button v-if="store.vaultPath" @click="switchVault()">切换 Vault</button>
     </header>
 
@@ -117,15 +167,18 @@ function onFileContext(payload: { path: string; event: MouseEvent }) {
     </main>
 
     <aside class="right-panel">
-      <div class="panel-placeholder">
+      <PluginSlot v-for="panel in store.rightPanels" :key="panel.key" :item="panel" :api="pluginApi" />
+      <div v-if="store.rightPanels.length === 0" class="panel-placeholder">
         <strong>面板区</strong><br />
-        该区域预留给客户端插件的 <code>panel.right</code> 扩展点（M2 里程碑启用）。
+        该区域预留给客户端插件的 <code>panel.right</code> 扩展点。点击顶栏「插件」启用
+        反向链接 / 标签聚合等插件。
       </div>
     </aside>
 
     <StatusBar />
 
     <VaultPicker v-if="store.vaultPath === null && !store.needsToken" />
+    <PluginsDrawer v-if="store.pluginsOpen" @close="store.pluginsOpen = false" />
     <ContextMenu v-if="menu" :x="menu.x" :y="menu.y" :items="menu.items" @close="menu = null" />
   </div>
 </template>

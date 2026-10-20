@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
@@ -10,6 +10,23 @@ const store = useAppStore()
 const host = ref<HTMLDivElement | null>(null)
 let view: EditorView | null = null
 let applying = false
+
+/** CodeMirror modules handed to plugin `editor.extension` factories */
+const cmModules = { EditorView, EditorState, keymap, lineNumbers }
+
+const pluginCompartment = new Compartment()
+
+function buildPluginExtensions(): unknown[] {
+  return store.editorExtensions.flatMap((item) => {
+    try {
+      const ext = item.factory(cmModules)
+      return ext ? [ext] : []
+    } catch (e) {
+      console.error(`[plugins] editor extension of "${item.pluginId}" failed`, e)
+      return []
+    }
+  })
+}
 
 function createView(): EditorView {
   return new EditorView({
@@ -22,6 +39,7 @@ function createView(): EditorView {
         keymap.of([...defaultKeymap, ...historyKeymap]),
         markdown(),
         EditorView.lineWrapping,
+        pluginCompartment.of(buildPluginExtensions()),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !applying) {
             store.onEdited(update.state.doc.toString())
@@ -61,6 +79,14 @@ watch(
   () => store.contentRev,
   () => {
     if (store.currentPath) replaceDoc(store.content)
+  },
+)
+
+// plugin editor extensions change (enable/disable) → reconfigure live
+watch(
+  () => store.editorExtensionRev,
+  () => {
+    view?.dispatch({ effects: pluginCompartment.reconfigure(buildPluginExtensions()) })
   },
 )
 </script>

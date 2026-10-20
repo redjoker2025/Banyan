@@ -1,0 +1,6 @@
+{
+  "name": "@banyan/plugin-conflict-demo-a",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module"
+}

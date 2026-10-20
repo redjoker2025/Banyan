@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@banyan/core": "workspace:*",
+    "@banyan/plugin-manager": "workspace:*",
     "@cordisjs/core": "workspace:*",
     "@hono/node-server": "^1.13.7",
     "@hono/node-ws": "^1.0.8",

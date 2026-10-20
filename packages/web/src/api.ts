@@ -4,6 +4,7 @@ export class ApiError extends Error {
   constructor(
     public readonly code: string,
     message: string,
+    public readonly parties?: string[],
   ) {
     super(message)
     this.name = 'ApiError'
@@ -45,8 +46,8 @@ export async function api<T>(
     throw new ApiError('E_UNAUTHORIZED', 'missing or invalid token')
   }
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
-    throw new ApiError(err.error ?? 'E_INTERNAL', err.message ?? res.statusText)
+    const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string; parties?: string[] }
+    throw new ApiError(err.error ?? 'E_INTERNAL', err.message ?? res.statusText, err.parties)
   }
   return (await res.json()) as T
 }

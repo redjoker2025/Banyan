@@ -15,6 +15,48 @@ export interface SearchHit {
 
 export type SaveState = 'saved' | 'saving' | 'dirty' | 'error'
 
+export interface PluginStatus {
+  id: string
+  name: string
+  version: string
+  description: string
+  source: 'official' | 'installed'
+  enabled: boolean
+  hasServer: boolean
+  hasClient: boolean
+  provides: string[]
+  inject: string[]
+  error?: string
+}
+
+export interface PluginPanelItem {
+  key: string
+  pluginId: string
+  side: 'left' | 'right'
+  title: string
+  render: (el: HTMLElement, api: unknown) => void | (() => void)
+}
+
+export interface StatusbarItem {
+  key: string
+  pluginId: string
+  render: (api: unknown) => string
+}
+
+export interface CommandItem {
+  key: string
+  pluginId: string
+  id: string
+  title: string
+  run: (api: unknown) => void | Promise<void>
+}
+
+export interface EditorExtensionItem {
+  key: string
+  pluginId: string
+  factory: (cm: Record<string, unknown>) => unknown
+}
+
 const AUTOSAVE_DELAY = 800 // ms, per M1 spec (≤ 800ms)
 
 export const useAppStore = defineStore('app', {
@@ -37,10 +79,26 @@ export const useAppStore = defineStore('app', {
     rightPanel: null as string | null,
     /** autosave timer handle */
     saveTimer: 0,
+    // --- plugin system (M2) ---
+    plugins: [] as PluginStatus[],
+    pluginPanels: [] as PluginPanelItem[],
+    statusbarItems: [] as StatusbarItem[],
+    pluginCommands: [] as CommandItem[],
+    editorExtensions: [] as EditorExtensionItem[],
+    /** bumped when the editor extension list changes */
+    editorExtensionRev: 0,
+    /** merged `plugin.state` data published by server plugins */
+    pluginState: {} as Record<string, Record<string, unknown>>,
+    pluginPanelSeq: 0,
+    pluginsOpen: false,
+    /** installed by the client plugin host (avoids a circular import) */
+    pluginStateHandler: null as ((id: string, enabled: boolean) => void) | null,
+    noteListeners: new Set<() => void>(),
   }),
 
   getters: {
     dirty: (s) => s.content !== s.baseline,
+    rightPanels: (s) => s.pluginPanels.filter((p) => p.side === 'right'),
   },
 
   actions: {
@@ -53,7 +111,10 @@ export const useAppStore = defineStore('app', {
       try {
         const v = await api<{ path: string | null }>('/api/vault')
         this.vaultPath = v.path
-        if (v.path) await this.loadTree()
+        if (v.path) {
+          await this.loadTree()
+          void this.loadPlugins()
+        }
       } catch (e) {
         if (e instanceof ApiError && e.code === 'E_UNAUTHORIZED') this.needsToken = true
       }
@@ -85,6 +146,7 @@ export const useAppStore = defineStore('app', {
       // opening a note (esp. from search results) restores the file tree view
       this.searchQuery = ''
       this.searchHits = []
+      this.notifyNoteChanged()
     },
 
     onEdited(content: string) {
@@ -119,6 +181,7 @@ export const useAppStore = defineStore('app', {
         if (this.currentPath === path && this.content === payload) {
           this.baseline = res.content
           this.saveState = 'saved'
+          this.notifyNoteChanged()
         } else {
           this.baseline = res.content
           if (this.dirty) this.scheduleSave()
@@ -177,6 +240,22 @@ export const useAppStore = defineStore('app', {
 
     onWsMessage(msg: WsMessage) {
       const p = msg.payload as { path?: string; content?: string } | undefined
+      if (msg.type === 'plugin.state') {
+        const data = msg.payload as Record<string, unknown> & { id?: string; enabled?: boolean; plugin?: string }
+        if (typeof data.id === 'string' && typeof data.enabled === 'boolean') {
+          // manager lifecycle event → client hot enable/disable
+          this.pluginStateHandler?.(data.id, data.enabled)
+          void this.loadPlugins()
+          return
+        }
+        // data event from a server plugin → merge into pluginState
+        if (data.plugin) {
+          const key = data.plugin
+          this.pluginState[key] = { ...(this.pluginState[key] ?? {}), ...data }
+        }
+        this.notifyNoteChanged()
+        return
+      }
       if (msg.type === 'note.updated' && p?.path) {
         if (p.path === this.currentPath && !this.dirty && typeof p.content === 'string' && p.content !== this.baseline) {
           // another tab edited the note we are viewing → refresh silently
@@ -184,6 +263,7 @@ export const useAppStore = defineStore('app', {
           this.baseline = p.content
           this.contentRev++
           this.saveState = 'saved'
+          this.notifyNoteChanged()
         }
       } else if (msg.type === 'note.deleted' && p?.path) {
         void this.loadTree()
@@ -196,6 +276,33 @@ export const useAppStore = defineStore('app', {
       } else if (msg.type === 'note.created') {
         void this.loadTree()
       }
+    },
+
+    // --- note change listeners for client plugins ---
+    addNoteListener(cb: () => void): () => void {
+      this.noteListeners.add(cb)
+      return () => this.noteListeners.delete(cb)
+    },
+    notifyNoteChanged(): void {
+      for (const cb of this.noteListeners) cb()
+    },
+
+    // --- plugin management UI ---
+    async loadPlugins() {
+      try {
+        const res = await api<{ plugins: PluginStatus[] }>('/api/plugins')
+        this.plugins = res.plugins
+      } catch {
+        // vault not opened yet
+      }
+    },
+    async enablePlugin(id: string) {
+      await api('/api/plugins/enable', { method: 'POST', json: { id } })
+      await this.loadPlugins()
+    },
+    async disablePlugin(id: string) {
+      await api('/api/plugins/disable', { method: 'POST', json: { id } })
+      await this.loadPlugins()
     },
   },
 })

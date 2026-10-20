@@ -1,0 +1,25 @@
+{
+  "name": "@banyan/plugin-manager",
+  "version": "0.1.0",
+  "description": "Banyan plugin manager: manifest validation, conflict detection, permission proxy, audit",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@banyan/core": "workspace:*",
+    "@cordisjs/core": "workspace:*",
+    "semver": "^7.6.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.5.8",
+    "typescript": "^5.7.0"
+  }
+}

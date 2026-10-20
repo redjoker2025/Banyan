@@ -1,0 +1,18 @@
+{
+  "id": "banyan.word-count",
+  "name": "字数统计",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "保存时经 pipeline/save 瀑布链统计字数，在状态栏显示当前笔记字数",
+  "inject": ["pipeline", "broadcast", "logger"],
+  "provides": [],
+  "permissions": {
+    "fs": { "globs": [] },
+    "net": { "domains": [] },
+    "exec": false
+  },
+  "entry": {
+    "server": "./server/index.ts",
+    "client": "./client/index.js"
+  }
+}

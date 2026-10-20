@@ -1,0 +1,17 @@
+{
+  "id": "banyan.tags",
+  "name": "标签聚合",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "聚合全部笔记 frontmatter 的 tags 字段，点击标签可过滤笔记",
+  "inject": [],
+  "provides": [],
+  "permissions": {
+    "fs": { "globs": [] },
+    "net": { "domains": [] },
+    "exec": false
+  },
+  "entry": {
+    "client": "./client/index.js"
+  }
+}

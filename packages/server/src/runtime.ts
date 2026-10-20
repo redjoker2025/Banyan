@@ -1,6 +1,9 @@
 import { Context } from '@cordisjs/core'
 import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { PluginManager, AuditLog } from '@banyan/plugin-manager'
 import { ConfigServiceImpl } from './services/config.ts'
+import { GraphServiceImpl } from './services/graph.ts'
 import { IndexServiceImpl } from './services/indexer.ts'
 import { Journal } from './services/journal.ts'
 import { LoggerServiceImpl } from './services/logger.ts'
@@ -19,16 +22,43 @@ export interface ServerRuntime {
   token: string
   vault: VaultServiceImpl | null
   index: IndexServiceImpl | null
+  graph: GraphServiceImpl | null
   settings: ConfigServiceImpl | null
   journal: Journal | null
+  plugins: PluginManager | null
   /** `<vault>/.banyan` directory, null until a vault is opened */
   metadataDir: string | null
+  /** latest `plugin.state` data payloads per plugin, replayed to new WS clients */
+  pluginDataSnapshot: Record<string, Record<string, unknown>>
   broadcast(event: WsEvent): void
+}
+
+/**
+ * Capability keys (vault / graph / net) are only usable through the
+ * permission-gated facade that the plugin manager gives each plugin (§4.5).
+ * The global registration is a stub so that `inject` satisfiability works
+ * while any direct `ctx.get('vault')`-style bypass fails loudly.
+ */
+function capabilityStub(name: string): unknown {
+  return new Proxy({}, {
+    get: () => () => {
+      throw new Error(`the "${name}" capability is only available to plugins through the permission-gated ctx capability (declare it in inject)`)
+    },
+  })
 }
 
 export function createRuntime(ctx: Context, token: string, broadcast: (event: WsEvent) => void): ServerRuntime {
   ctx.set('logger', new LoggerServiceImpl())
-  return { ctx, token, vault: null, index: null, settings: null, journal: null, metadataDir: null, broadcast }
+  // host capability keys: real values for vault/graph are (re)registered per
+  // vault in openVault as `rt.*` fields; plugins receive gated instances.
+  ctx.set('vault', capabilityStub('vault'))
+  ctx.set('graph', capabilityStub('graph'))
+  ctx.set('net', capabilityStub('net'))
+  ctx.set('pipeline', {
+    save: (listener: unknown) => ctx.on('pipeline/save', listener as never),
+  })
+  ctx.set('broadcast', (event: { type: string; payload: Record<string, unknown> }) => broadcast(event as WsEvent))
+  return { ctx, token, vault: null, index: null, graph: null, settings: null, journal: null, plugins: null, metadataDir: null, pluginDataSnapshot: {}, broadcast }
 }
 
 /**
@@ -52,17 +82,23 @@ export async function openVault(rt: ServerRuntime, vaultRoot: string, reusePersi
       rt.ctx.set(key, undefined)
     }
   }
+  // unload plugins of the previous vault before dropping the manager
+  if (rt.plugins) {
+    for (const id of rt.plugins.enabledList()) {
+      await rt.plugins.disable(id)
+    }
+  }
 
   const vault = new VaultServiceImpl(vaultRoot)
   const config = new ConfigServiceImpl(path.join(metaDir, 'config.json'))
   const index = new IndexServiceImpl(path.join(metaDir, 'index.db'), vault)
   const journal = new Journal(path.join(metaDir, 'journal.jsonl'))
+  const graph = new GraphServiceImpl(vault)
 
-  rt.ctx.set('vault', vault)
   rt.ctx.set('index', index)
   rt.ctx.set('settings', config)
 
-  Object.assign(rt, { vault, index, settings: config, journal, metadataDir: metaDir })
+  Object.assign(rt, { vault, index, graph, settings: config, journal, metadataDir: metaDir })
 
   // the index is always a derivative: rebuild automatically when missing or
   // wiped (e.g. index.db deleted while the server was down, §4.3)
@@ -81,7 +117,26 @@ export async function openVault(rt: ServerRuntime, vaultRoot: string, reusePersi
   }
   await config.set('vaultPath', vaultRoot)
 
+  // plugin system (M2): scan the vault's installed/ directory plus the
+  // repository's official plugins/, then mount the persisted enabled set
+  const plugins = new PluginManager({
+    ctx: rt.ctx,
+    host: { vault, graph, netFetch: (url, init) => fetch(url, init) },
+    audit: new AuditLog(path.join(metaDir, 'audit.jsonl')),
+    config,
+    broadcast: (event) => rt.broadcast(event as WsEvent),
+    pluginsDirs: [path.join(metaDir, 'installed'), path.resolve(here(), '../../../plugins')],
+    logger: rt.ctx.logger,
+  })
+  await plugins.init()
+  rt.plugins = plugins
+
   rt.ctx.logger.info(`vault opened: ${vaultRoot}`)
+}
+
+/** server package directory, resolved lazily for plugin dir layout */
+function here(): string {
+  return path.dirname(fileURLToPath(import.meta.url))
 }
 
 /**

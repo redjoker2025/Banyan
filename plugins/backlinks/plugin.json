@@ -1,0 +1,17 @@
+{
+  "id": "banyan.backlinks",
+  "name": "反向链接",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "在右侧面板显示当前笔记的反向链接（基于 ctx.graph 的链接图）",
+  "inject": [],
+  "provides": [],
+  "permissions": {
+    "fs": { "globs": [] },
+    "net": { "domains": [] },
+    "exec": false
+  },
+  "entry": {
+    "client": "./client/index.js"
+  }
+}

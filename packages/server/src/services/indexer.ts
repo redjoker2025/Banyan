@@ -24,6 +24,24 @@ export function parseNote(content: string, rel: string): ParsedNote {
   return { title: fmTitle || heading || base, body: parsed.content }
 }
 
+/** Extract the frontmatter `tags` field (inline list or YAML block list). */
+export function parseFrontmatterTags(content: string): string[] {
+  let data: Record<string, unknown>
+  try {
+    data = matter(content).data
+  } catch {
+    return []
+  }
+  const raw = data?.tags
+  if (typeof raw === 'string') {
+    return raw.split(',').map((t) => t.trim()).filter(Boolean)
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((t) => String(t).trim()).filter(Boolean)
+  }
+  return []
+}
+
 interface IndexRow {
   path: string
   title: string

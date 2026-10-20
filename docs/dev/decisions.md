@@ -128,3 +128,46 @@ notes 表 LIKE 查询（body 冗余存储于 notes 表以支持回退）。
 `openVault()` 在 `notes` 表为空时自动执行 `rebuild()`。检测手段刻意保守
 （空即重建）而非校验和比对：M1 阶段够用且覆盖「首次打开 / index.db 被删 /
 损坏后清空」三种场景；漂移检测记录到 backlog。
+
+---
+
+## D10 · 新增宿主能力键 `net` 与 `broadcast`（2026-10-20，M2）
+
+**关联**：§4.5 net.domains、§4.3 plugin.state
+
+§4.2 的 key 表没有插件可用的网络能力与数据广播通道，但 §4.5 要求 `net.domains`
+权限可被拦截、官方插件 word-count 需要把统计数据推给客户端。故新增两个宿主能力：
+- `ctx.net`：`{ fetch(url, init) }`，仅允许 manifest `net.domains` 声明的域名，
+  拦截发生在任何网络 I/O 之前；
+- `ctx.broadcast`：`{ (event) }` 发布 WS `plugin.state` 数据事件。
+
+## D11 · 能力键全局占位 + 门面下发（2026-10-20，M2）
+
+**关联**：§4.5 权限代理的实现方式
+
+Cordis 的服务注册表是全局的（`ctx.plugin()` 挂载时不再继承调用方的 isolate 视图），
+无法用 per-plugin isolate 实现「每个插件看到自己的代理实例」。采用：
+1. **全局占位**：`vault` / `graph` / `net` 三个键全局注册为抛错占位（保证
+   `inject` 可满足性），任何 `ctx.get('vault')` 式绕过直接抛错；
+2. **门面下发**：插件管理器包装插件，`apply` 收到的 ctx 是以真实 fork ctx 为
+   原型的门面对象，其 `vault` / `graph` / `net` 属性指向权限代理实例。
+   门面继承 Cordis 的 effect/监听语义，内核冒烟与管理器测试双重锁定
+   （卸载 LIFO、无残留均不破坏）。
+
+## D12 · plugin.state 数据快照与新客户端重放（2026-10-20，M2）
+
+**关联**：§4.3 WS 实时刷新
+
+带 `plugin` 键的 `plugin.state` 数据事件只广播给在线客户端，后连接的浏览器会
+缺失状态（验收中发现：字数统计在新标签页不显示）。服务端现在按插件留存最新
+数据快照，并在 WS `onOpen` 时逐条重放。管理器生命周期事件（`{id, enabled}`）
+不进快照。
+
+## D13 · wiki 链接解析采用「相对优先 + basename 全局回退」（2026-10-20，M2）
+
+**关联**：§4.2 ctx.graph
+
+`[[welcome]]` 这类不带路径的 wiki 链接若仅按相对目录解析，子目录笔记会得到
+不存在的路径（验收中发现 backlinks 面板为空）。最终语义：先按相对路径解析；
+若结果不在 vault 中，则以 basename 在全库匹配（Obsidian 风格）；仍无则保留
+相对解析结果。Markdown 链接与 `[[dir/name]]` 同样适用该回退。
