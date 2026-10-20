@@ -24,7 +24,7 @@ async function open() {
 <template>
   <div class="overlay">
     <div class="dialog">
-      <h3>选择 Vault 文件夹</h3>
+      <h3>根植于哪个文件夹？</h3>
       <p>
         Banyan 以本地文件夹作为笔记库（唯一事实来源）。输入服务器所在机器上的一个文件夹绝对路径，
         例如 <code>D:\notes</code>。首次打开会自动创建 <code>.banyan/</code> 元数据目录并建立全文索引。
@@ -38,7 +38,7 @@ async function open() {
       <p v-if="error" style="color: var(--danger); margin-top: 8px">{{ error }}</p>
       <div class="row">
         <button class="primary" :disabled="busy || !folder.trim()" @click="open">
-          {{ busy ? '打开中…' : '打开' }}
+          {{ busy ? '打开中…' : '种下这棵榕树' }}
         </button>
       </div>
     </div>

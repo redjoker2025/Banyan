@@ -122,7 +122,7 @@ function onFileContext(payload: { path: string; event: MouseEvent }) {
 <template>
   <div class="layout" @click="menu = null">
     <header class="header">
-      <span class="logo">🌳 榕 Banyan</span>
+      <span class="logo">榕<span class="en">Banyan</span></span>
       <button @click="newNote()">＋ 新建笔记</button>
       <button @click="rebuildIndex()">重建索引</button>
       <details v-if="store.pluginCommands.length" class="command-menu">
@@ -161,8 +161,13 @@ function onFileContext(payload: { path: string; event: MouseEvent }) {
     <main class="editor-pane">
       <EditorPane v-if="store.currentPath" />
       <div v-else class="editor-empty">
-        <div class="big">🌳</div>
-        <div>在左侧选择或新建一条笔记开始编辑</div>
+        <div class="mark">榕</div>
+        <div class="title">根植本地，枝达万物</div>
+        <div class="hint">在左侧选择一条笔记，或新建一条开始书写</div>
+        <div class="keys">
+          <span><kbd>Ctrl</kbd>搜索全文</span>
+          <span><kbd>插件</kbd>扩展面板与命令</span>
+        </div>
       </div>
     </main>
 

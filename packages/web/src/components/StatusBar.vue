@@ -55,7 +55,7 @@ const pluginStatusTexts = computed(() =>
     <span class="save-state" :class="store.saveState">{{ saveText }}</span>
     <span v-for="item in pluginStatusTexts" :key="item.key" class="plugin-status">{{ item.text }}</span>
     <span class="spacer"></span>
-    <span v-if="store.currentPath">{{ store.currentPath }}</span>
+    <span v-if="store.currentPath" class="path">{{ store.currentPath }}</span>
     <span>{{ charCount }} 字符</span>
   </footer>
 </template>

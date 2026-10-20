@@ -25,7 +25,7 @@ export function serveWebDist(app: Hono, distDir: string): void {
   const root = resolve(distDir)
 
   app.get('*', (c) => {
-    if (c.req.method !== 'GET') return c.notFound()
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return c.notFound()
     const pathname = decodeURIComponent(new URL(c.req.url).pathname)
     if (!existsSync(root)) {
       return c.text('web client is not built yet — run: pnpm --filter @banyan/web build', 503)
@@ -38,6 +38,7 @@ export function serveWebDist(app: Hono, distDir: string): void {
     if (statSafeIsDir(filePath)) {
       filePath = join(filePath, 'index.html')
     }
+    const isHtmlEntry = filePath === join(root, 'index.html')
     if (!existsSync(filePath) || !statSync(filePath).isFile()) {
       // SPA fallback: unknown extension-less paths render the app shell
       if (pathname.includes('.')) return c.text('not found', 404)
@@ -46,7 +47,13 @@ export function serveWebDist(app: Hono, distDir: string): void {
     }
     const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
     const body = readFileSync(filePath)
-    return c.body(body, 200, { 'content-type': MIME[ext] ?? 'application/octet-stream' })
+    // the HTML entry references hashed assets — always revalidate it so
+    // clients pick up new builds immediately; hashed assets are immutable
+    const cacheControl = isHtmlEntry ? 'no-cache' : 'public, max-age=31536000, immutable'
+    return c.body(body, 200, {
+      'content-type': MIME[ext] ?? 'application/octet-stream',
+      'cache-control': cacheControl,
+    })
   })
 }
 

@@ -31,6 +31,8 @@ export interface HostApi {
 
 const disposables = new Map<string, Array<() => void>>()
 const activated = new Set<string>()
+/** in-flight activations, so concurrent callers share one import */
+const pending = new Map<string, Promise<void>>()
 
 export function installPluginHost(): void {
   const store = useAppStore()
@@ -49,55 +51,68 @@ export async function activateEnabledClientPlugins(): Promise<void> {
 }
 
 async function activateClient(id: string): Promise<void> {
+  const inFlight = pending.get(id)
+  if (inFlight) return inFlight
   if (activated.has(id)) return
   const store = useAppStore()
   const url = `/plugins/${encodeURIComponent(id)}/client?token=${encodeURIComponent(getToken())}`
-  const mod = (await import(/* @vite-ignore */ url)) as { activate?: (host: HostApi) => void; default?: { activate?: (host: HostApi) => void } }
-  const activate = mod.activate ?? mod.default?.activate
-  if (typeof activate !== 'function') {
-    console.error(`[plugins] client entry of "${id}" has no activate()`)
-    return
-  }
-  const list: Array<() => void> = []
-  disposables.set(id, list)
-  const track = <T>(dispose: () => void, value: T): T => {
-    list.push(dispose)
-    return value
-  }
-  const hostApi: HostApi = {
-    registerPanel(options) {
-      const key = `${id}#panel${store.pluginPanelSeq++}`
-      store.pluginPanels.push({ key, pluginId: id, side: options.side ?? 'right', title: options.title, render: options.render })
-      return track(() => {
-        store.pluginPanels = store.pluginPanels.filter((p) => p.key !== key)
-      }, key)
-    },
-    registerStatusbar(render) {
-      const key = `${id}#status${store.pluginPanelSeq++}`
-      store.statusbarItems.push({ key, pluginId: id, render })
-      return track(() => {
-        store.statusbarItems = store.statusbarItems.filter((s) => s.key !== key)
-      }, key)
-    },
-    registerCommand(options) {
-      const key = `${id}#cmd:${options.id}`
-      store.pluginCommands.push({ key, pluginId: id, id: options.id, title: options.title, run: options.run })
-      return track(() => {
-        store.pluginCommands = store.pluginCommands.filter((c) => c.key !== key)
-      }, key)
-    },
-    registerEditorExtension(factory) {
-      const key = `${id}#ext${store.pluginPanelSeq++}`
-      store.editorExtensions.push({ key, pluginId: id, factory })
-      store.editorExtensionRev++
-      return track(() => {
-        store.editorExtensions = store.editorExtensions.filter((x) => x.key !== key)
+  const task = (async () => {
+    const mod = (await import(/* @vite-ignore */ url)) as { activate?: (host: HostApi) => void; default?: { activate?: (host: HostApi) => void } }
+    const activate = mod.activate ?? mod.default?.activate
+    if (typeof activate !== 'function') {
+      console.error(`[plugins] client entry of "${id}" has no activate()`)
+      return
+    }
+    const list: Array<() => void> = []
+    disposables.set(id, list)
+    const track = <T>(dispose: () => void, value: T): T => {
+      list.push(dispose)
+      return value
+    }
+    const hostApi: HostApi = {
+      registerPanel(options) {
+        const key = `${id}#panel${store.pluginPanelSeq++}`
+        store.pluginPanels.push({ key, pluginId: id, side: options.side ?? 'right', title: options.title, render: options.render })
+        return track(() => {
+          store.pluginPanels = store.pluginPanels.filter((p) => p.key !== key)
+        }, key)
+      },
+      registerStatusbar(render) {
+        const key = `${id}#status${store.pluginPanelSeq++}`
+        store.statusbarItems.push({ key, pluginId: id, render })
+        return track(() => {
+          store.statusbarItems = store.statusbarItems.filter((s) => s.key !== key)
+        }, key)
+      },
+      registerCommand(options) {
+        const key = `${id}#cmd:${options.id}`
+        store.pluginCommands.push({ key, pluginId: id, id: options.id, title: options.title, run: options.run })
+        return track(() => {
+          store.pluginCommands = store.pluginCommands.filter((c) => c.key !== key)
+        }, key)
+      },
+      registerEditorExtension(factory) {
+        const key = `${id}#ext${store.pluginPanelSeq++}`
+        store.editorExtensions.push({ key, pluginId: id, factory })
         store.editorExtensionRev++
-      }, key)
-    },
+        return track(() => {
+          store.editorExtensions = store.editorExtensions.filter((x) => x.key !== key)
+          store.editorExtensionRev++
+        }, key)
+      },
+    }
+    activate(hostApi)
+    activated.add(id)
+  })()
+  pending.set(id, task)
+  try {
+    await task
+  } catch (e) {
+    console.error(`[plugins] activate ${id} failed`, e)
+    pending.delete(id)
+  } finally {
+    if (pending.get(id) === task && activated.has(id)) pending.delete(id)
   }
-  activate(hostApi)
-  activated.add(id)
 }
 
 function deactivateClient(id: string): void {
@@ -112,4 +127,5 @@ function deactivateClient(id: string): void {
   }
   disposables.delete(id)
   activated.delete(id)
+  pending.delete(id)
 }

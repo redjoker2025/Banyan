@@ -1,63 +1,101 @@
-# Banyan（榕）
+# 榕 Banyan
 
-本地优先、插件化的笔记软件（Web 版）。Markdown 文件夹是唯一事实来源，
-索引与日志全部可由文件夹重建；插件内核内嵌 [Cordis](https://github.com/cordiverse/cordis)
-（服务容器 + 声明式依赖注入 + 可逆副作用 + 类型化事件）。
+<p align="center">
+  <img src="docs/dev/images/ui-overview.png" alt="榕 Banyan 界面" width="920" />
+</p>
 
-> **Status: M2（插件系统 v0）已完成。** 本地 Node 服务 + 浏览器 UI + 完整插件系统：
-> 打开 vault、编辑自动保存、FTS5 搜索、双标签同步、插件 manifest 严格校验 /
-> 冲突检测 / 权限代理（fs.globs / net.domains）/ 审计日志 / 禁用即卸载；
-> 附 4 个官方插件（字数统计、反向链接、标签聚合、今日笔记）与 3 个演示插件
-> （冲突 ×2、越权 ×1）。
+**榕**是一款本地优先、插件化的笔记软件（Web 版）。一个 Markdown 文件夹就是你的全部数据——
+索引与日志都是可随时重建的派生物。插件内核内嵌 [Cordis](https://github.com/cordiverse/cordis)，
+围绕三条立身之本构建：**权限声明与运行时拦截、启用时冲突检测、卸载无残留**。
 
-A local-first, plugin-based note-taking app for the web. Your folder of
-Markdown files is the single source of truth — the index and journals are
-always rebuildable. Built on an embedded Cordis kernel with a capability-based
-plugin system (declared permissions, runtime interception, conflict detection
-and residue-free uninstall).
+## 功能
+
+- **本地优先** — 纯 Markdown 文件夹是唯一事实来源；`FTS5` 全文索引、事件日志皆可重建
+- **书写体验** — CodeMirror 6 编辑器、800ms 防抖自动保存（经插件可扩展的 `pipeline/save` 瀑布链）、居中限宽版式
+- **实时同步** — 多浏览器标签页经 WebSocket 即时同步（含插件数据快照重放）
+- **全文搜索** — trigram 分词，中文子串检索，带高亮片段
+- **插件系统** — 双面插件（Node 服务端 + 浏览器客户端）、四个扩展点、能力级权限代理、审计日志
 
 ## 30 秒上手
 
 ```powershell
 # 环境要求：Node.js >= 22、pnpm >= 9
 pnpm install
-pnpm test          # 内核冒烟 + 服务端/插件管理器测试（72 用例）
+pnpm test          # 72 个测试（内核冒烟 / 服务端 / 插件管理器）
 pnpm --filter @banyan/web build   # 构建前端静态资源（首次需要）
 pnpm web -- --vault D:\path\to\notes   # 启动并自动打开浏览器
-# 开发模式（前端热更）：pnpm dev（服务端）+ pnpm dev:web（Vite）
+# 前端开发模式：pnpm dev（服务端）+ pnpm dev:web（Vite 热更）
 ```
 
 服务仅绑定 `127.0.0.1:3210`（`--port` 可改）。首次启动生成随机 token 写入
-`<vault>/.banyan/config.json`，之后重启复用同一 token；浏览器需带
-`?token=` 参数（启动器已自动拼接）。
+`<vault>/.banyan/config.json`，之后重启复用；浏览器 URL 自动携带 `?token=`。
 
-打开后点击顶栏「插件」启用官方插件：**字数统计**（保存瀑布链 + 状态栏）、
-**反向链接**（`[[wiki]]` 链接图）、**标签聚合**（frontmatter tags 过滤）、
-**今日笔记**（命令：打开/创建 `YYYY-MM-DD.md`）；「冲突演示 A/B」与
-「越权演示」用于演示冲突报错（409 指名双方）与越权拦截（写入 `audit.jsonl`）。
+## 插件
 
-## 架构一句话
+点击顶栏「插件」管理（启用/禁用即时生效）：
 
-`vendor/cordis`（内核，只读内嵌）→ `@banyan/core`（ctx key 契约 + 类型化事件 +
-内核扩展）→ `@banyan/plugin-manager`（manifest 校验 / 权限代理 / 冲突检测）→
-`@banyan/server`（Hono REST + WS）→ `@banyan/web`（Vue 3 + CodeMirror 6 + 插件宿主）。
+| 插件 | 说明 |
+|---|---|
+| 字数统计 | 保存时经 `pipeline/save` 瀑布链统计，状态栏实时显示 |
+| 反向链接 | 右侧面板展示 `[[wiki]]` 与 Markdown 链接图 |
+| 标签聚合 | 聚合 frontmatter `tags`，点击标签过滤笔记 |
+| 今日笔记 | 命令「打开/创建今日笔记」→ `YYYY-MM-DD.md` |
+| 冲突演示 A/B | 演示 `provides` 冲突：同 key 同时启用 → 409 指名双方 |
+| 越权演示 | 演示 `net.domains` 越权 → 拦截并写入 `audit.jsonl` |
 
-## 差异化卖点（架构基石）
+插件如何编写？见 [docs/dev/plugin-spec.md](docs/dev/plugin-spec.md)。
 
-1. **插件权限声明与运行时拦截**——manifest 声明 `fs.globs` / `net.domains` /
-   `exec`，越权调用抛错并写入审计日志
-2. **安装/启用时冲突检测**——`provides` key 唯一性（409 指名双方）、`inject` 可满足性
-3. **卸载无残留**——一切注册经内核 effect 机制，LIFO 顺序自动释放；客户端 UI
-   扩展点随禁用全部撤销
+## 架构
 
-## 文档
+```
+vendor/cordis（内核，只读内嵌）
+  └─ @banyan/core        ctx key 契约 · 类型化事件 · waterfall/LIFO 内核扩展
+      └─ @banyan/plugin-manager   manifest 严格校验 · 权限代理 · 冲突检测 · 审计
+          └─ @banyan/server   Hono REST + WS（仅绑定 127.0.0.1，token 鉴权）
+              └─ @banyan/web  Vue 3 + Pinia + CodeMirror 6 + 客户端插件宿主
+```
 
-- [docs/dev/plugin-spec.md](docs/dev/plugin-spec.md) — 插件规范（manifest / 权限 / 扩展点）
-- [docs/dev/vendor.md](docs/dev/vendor.md) — 内嵌 Cordis 的来源、版本与修改政策
-- [docs/dev/decisions.md](docs/dev/decisions.md) — 开发决策记录
-- [docs/dev/test-report-m1.md](docs/dev/test-report-m1.md) — M1 图文测试报告
-- （截图占位：M2 界面截图待补）
+数据目录 `<vault>/.banyan/`：`config.json`（token、启用列表）· `index.db`（FTS5，可删可重建）·
+`journal.jsonl`（append-only 事件日志）· `audit.jsonl`（安全审计）· `installed/`（用户插件）。
+
+## 开发
+
+```powershell
+pnpm test        # vitest，全部工作区
+pnpm typecheck   # tsc 严格模式
+pnpm build       # 全量构建
+node scripts/api-smoke.mjs <baseUrl> <token>   # API 冒烟矩阵（34 项）
+```
+
+里程碑决策与取舍记录在 [docs/dev/decisions.md](docs/dev/decisions.md)，
+内核 vendor 来源与升级流程在 [docs/dev/vendor.md](docs/dev/vendor.md)，
+M1 图文测试报告见 [docs/dev/test-report-m1.md](docs/dev/test-report-m1.md)。
+
+## Roadmap
+
+- [x] M0 内核冒烟（Cordis 内嵌 + waterfall/LIFO 语义）
+- [x] M1 Web 骨架（编辑器 / 搜索 / 同步 / 索引重建）
+- [x] M2 插件系统 v0（权限 / 冲突 / 审计 / 双面插件）
+- [ ] M3（规划中）：应用内对话框替代原生 prompt、暗色主题、更多扩展点、worker 级插件沙箱
 
 ## License
 
 [MIT](LICENSE)
+
+---
+
+<p align="center">
+  <img src="docs/dev/images/ui-plugins-drawer.png" alt="插件管理" width="640" />
+</p>
+
+## About (English)
+
+**Banyan** is a local-first, plugin-based note-taking app for the web. A plain
+folder of Markdown files is the single source of truth — the full-text index
+and journals are derivable at any time. It is built on an embedded
+[Cordis](https://github.com/cordiverse/cordis) kernel with a capability-based
+plugin system: plugins declare permissions (`fs.globs`, `net.domains`, `exec`),
+which are enforced by a runtime proxy with a security audit log; `provides`
+conflicts are detected at enable time; and unloading a plugin reverses every
+registration it made. Run `pnpm web -- --vault <folder>` and open
+`http://127.0.0.1:3210` — everything stays on your machine.
