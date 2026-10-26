@@ -1,12 +1,55 @@
 # 榕 Banyan
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/banyan-notes"><img src="https://img.shields.io/npm/v/banyan-notes?color=2e6b4f&label=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/banyan-notes"><img src="https://img.shields.io/npm/dt/banyan-notes?color=2e6b4f&label=downloads" alt="npm downloads" /></a>
+  <a href="https://github.com/redjoker2025/Banyan/blob/main/LICENSE"><img src="https://img.shields.io/github/license/redjoker2025/Banyan?color=2e6b4f" alt="MIT License" /></a>
+</p>
+
+<p align="center">
   <img src="docs/dev/images/ui-overview.png" alt="榕 Banyan 界面" width="920" />
 </p>
 
 **榕**是一款本地优先、插件化的笔记软件（Web 版）。一个 Markdown 文件夹就是你的全部数据——
 索引与日志都是可随时重建的派生物。插件内核内嵌 [Cordis](https://github.com/cordiverse/cordis)，
 围绕三条立身之本构建：**权限声明与运行时拦截、启用时冲突检测、卸载无残留**。
+
+## 快速开始
+
+**方式一 · 免安装直接跑**（需要 Node.js ≥ 22）：
+
+```powershell
+npx banyan-notes web --vault D:\my-notes
+```
+
+**方式二 · 全局安装**：
+
+```powershell
+npm i -g banyan-notes
+banyan web --vault D:\my-notes
+```
+
+启动后浏览器自动打开 `http://127.0.0.1:3210`（token 自动携带）。
+
+常用参数：
+
+| 参数 | 说明 |
+|---|---|
+| `--vault <文件夹>` | 笔记库位置（纯 Markdown 文件夹，不存在会自动创建） |
+| `--port 4000` | 换端口（默认 3210，仅监听 127.0.0.1） |
+| `--no-open` | 不自动打开浏览器 |
+
+**方式三 · 从源码运行**（面向开发者）：
+
+```powershell
+git clone git@github.com:redjoker2025/Banyan.git
+cd Banyan
+pnpm install
+pnpm test          # 72 个测试（内核冒烟 / 服务端 / 插件管理器）
+pnpm --filter @banyan/web build
+pnpm web -- --vault D:\my-notes
+# 前端开发模式：pnpm dev（服务端）+ pnpm dev:web（Vite 热更）
+```
 
 ## 功能
 
@@ -16,23 +59,9 @@
 - **全文搜索** — trigram 分词，中文子串检索，带高亮片段
 - **插件系统** — 双面插件（Node 服务端 + 浏览器客户端）、四个扩展点、能力级权限代理、审计日志
 
-## 30 秒上手
-
-```powershell
-# 环境要求：Node.js >= 22、pnpm >= 9
-pnpm install
-pnpm test          # 72 个测试（内核冒烟 / 服务端 / 插件管理器）
-pnpm --filter @banyan/web build   # 构建前端静态资源（首次需要）
-pnpm web -- --vault D:\path\to\notes   # 启动并自动打开浏览器
-# 前端开发模式：pnpm dev（服务端）+ pnpm dev:web（Vite 热更）
-```
-
-服务仅绑定 `127.0.0.1:3210`（`--port` 可改）。首次启动生成随机 token 写入
-`<vault>/.banyan/config.json`，之后重启复用；浏览器 URL 自动携带 `?token=`。
-
 ## 插件
 
-点击顶栏「插件」管理（启用/禁用即时生效）：
+启动后点击顶栏「插件」管理（启用/禁用即时生效）：
 
 | 插件 | 说明 |
 |---|---|
@@ -44,6 +73,10 @@ pnpm web -- --vault D:\path\to\notes   # 启动并自动打开浏览器
 | 越权演示 | 演示 `net.domains` 越权 → 拦截并写入 `audit.jsonl` |
 
 插件如何编写？见 [docs/dev/plugin-spec.md](docs/dev/plugin-spec.md)。
+
+<p align="center">
+  <img src="docs/dev/images/ui-plugins-drawer.png" alt="插件管理" width="640" />
+</p>
 
 ## 架构
 
@@ -65,6 +98,7 @@ pnpm test        # vitest，全部工作区
 pnpm typecheck   # tsc 严格模式
 pnpm build       # 全量构建
 node scripts/api-smoke.mjs <baseUrl> <token>   # API 冒烟矩阵（34 项）
+node scripts/build-npm.mjs   # 组装 npm 发布包
 ```
 
 里程碑决策与取舍记录在 [docs/dev/decisions.md](docs/dev/decisions.md)，
@@ -84,10 +118,6 @@ M1 图文测试报告见 [docs/dev/test-report-m1.md](docs/dev/test-report-m1.md
 
 ---
 
-<p align="center">
-  <img src="docs/dev/images/ui-plugins-drawer.png" alt="插件管理" width="640" />
-</p>
-
 ## About (English)
 
 **Banyan** is a local-first, plugin-based note-taking app for the web. A plain
@@ -97,5 +127,8 @@ and journals are derivable at any time. It is built on an embedded
 plugin system: plugins declare permissions (`fs.globs`, `net.domains`, `exec`),
 which are enforced by a runtime proxy with a security audit log; `provides`
 conflicts are detected at enable time; and unloading a plugin reverses every
-registration it made. Run `pnpm web -- --vault <folder>` and open
-`http://127.0.0.1:3210` — everything stays on your machine.
+registration it made.
+
+```powershell
+npx banyan-notes web --vault D:\my-notes
+```
