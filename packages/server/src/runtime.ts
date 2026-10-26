@@ -1,5 +1,6 @@
 import { Context } from '@cordisjs/core'
 import * as path from 'node:path'
+import { statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { PluginManager, AuditLog } from '@banyan/plugin-manager'
 import { ConfigServiceImpl } from './services/config.ts'

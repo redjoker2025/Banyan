@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.5
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -126,6 +129,20 @@ importers:
       vue-tsc:
         specifier: ^2.1.10
         version: 2.2.12(typescript@5.9.3)
+
+  plugins/backlinks: {}
+
+  plugins/conflict-demo-a: {}
+
+  plugins/conflict-demo-b: {}
+
+  plugins/daily-note: {}
+
+  plugins/net-violation-demo: {}
+
+  plugins/tags: {}
+
+  plugins/word-count: {}
 
   vendor/cordis:
     dependencies:
