@@ -75,6 +75,8 @@ function makeHarness(): Harness {
     broadcast: (event) => broadcasts.push(event),
     pluginsDirs: [pluginsDir],
     logger: { info: () => {}, warn: () => {} },
+    registerRoute: () => {},
+    isPluginActive: () => false,
   })
   return { manager, ctx, configStore, broadcasts, root }
 }

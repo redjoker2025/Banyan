@@ -11,6 +11,7 @@ export const BUILTIN_INJECTABLE_KEYS = [
   'index',
   'graph',
   'net',
+  'http',
   'settings',
   'logger',
   'pipeline',

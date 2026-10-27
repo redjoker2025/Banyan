@@ -66,16 +66,17 @@ export default {
 
 | key | 类型 | 说明 |
 |---|---|---|
-| `ctx.vault` | 能力 | 笔记读写（read/write/list/delete），**经权限代理** |
+| `ctx.vault` | 能力 | 笔记读写（read/write/list/delete/exists），**经权限代理** |
 | `ctx.graph` | 能力 | links(path) / backlinks(path)，**经权限代理** |
 | `ctx.net` | 能力 | fetch(url)，**仅允许 `net.domains` 中声明的域名，拦截发生在任何 I/O 之前** |
+| `ctx.http` | 能力 | registerRoute(method, subPath, handler) 注册插件专属 HTTP 路由（见 §3.4），**经权限代理下发** |
 | `ctx.index` | 服务 | search(q) / rebuild()（全局只读派生数据） |
 | `ctx.settings` | 服务 | `<vault>/.banyan/config.json` 读写 |
 | `ctx.logger` | 服务 | 结构化日志 |
 | `ctx.pipeline` | 服务 | `{ save(listener) }` 注册 `pipeline/save` 瀑布监听的便捷封装 |
 | `ctx.broadcast` | 服务 | `{ (event) }` 发布 WS `plugin.state` 数据 |
 
-**重要**：`vault` / `graph` / `net` 三个能力键在全局 ctx 上是抛错占位——插件必须通过
+**重要**：`vault` / `graph` / `net` / `http` 四个能力键在全局 ctx 上是抛错占位——插件必须通过
 `apply(ctx)` 收到的**门面 ctx**（插件管理器注入）访问它们，门面上的实例即权限代理。
 `ctx.get('vault')` 之类的绕过会直接抛错。
 
@@ -89,10 +90,46 @@ export default {
 `ctx.broadcast({ type: 'plugin.state', payload: { plugin: '<id>', ...data } })` 会：
 1. WS 广播给所有在线客户端；2. 由服务端留存快照，**新连接的客户端自动重放**。
 
+### 3.4 HTTP 路由扩展点（ctx.http）
+
+服务端插件可以注册自己的 HTTP 路由，宿主自动完成**命名空间隔离、token 鉴权与禁用门**：
+
+```ts
+export default {
+  inject: ['http', 'vault', 'logger'],
+  apply(ctx) {
+    // 最终 URL：/api/plugins/<plugin-id>/import（POST）
+    ctx.http.registerRoute('POST', '/import', async (req: Request) => {
+      const form = await req.formData()
+      // ... 处理后返回标准 Response
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+  },
+}
+```
+
+约定：
+
+1. **命名空间**：路由挂在 `/api/plugins/<plugin-id>/` 之下，`subPath` 以 `/` 开头；
+   插件无法注册到命名空间之外，宿主核心 API 不会被覆盖
+2. **鉴权**：与核心 API 相同，经 `/api/*` 的 Bearer token / `?token=` 中间件
+3. **handler 签名**：`(req: Request) => Response | Promise<Response>`（原生 Fetch API 对象，
+   可用 `req.formData()` / `new URL(req.url).searchParams` 等）
+4. **禁用门**：插件禁用后其路由不注销，而是统一应答 `409 E_PLUGIN_DISABLED`——
+   插件无需手动 dispose，重新启用即自动复活
+5. **注册时机**：`apply()` 内同步注册；宿主以启动时注册的通配分发器按
+   `method + 路径` 查表转发（Hono 的动态 addRoute 不进编译缓存，见 decisions D14）
+
+完整示例见官方插件 [plugins/docx](../../plugins/docx/)（Word .docx 导入/导出，
+读用 mammoth、写用 docx）。
+
 ## 4. 冲突检测（启用时）
 
 1. **provides 唯一性**：两个插件提供同一 key → `E_CONFLICT`（409），错误信息与 `parties` 列出双方 id
-2. **inject 可满足性**：key 必须是宿主内置（vault/index/graph/net/settings/logger/pipeline/broadcast）或已被启用插件提供 → 否则 `E_MISSING_DEPENDENCY`
+2. **inject 可满足性**：key 必须是宿主内置（vault/graph/net/http/index/settings/logger/pipeline/broadcast）或已被启用插件提供 → 否则 `E_MISSING_DEPENDENCY`
 
 启用列表持久化于 `config.json` 的 `enabledPlugins`，重启自动恢复。
 

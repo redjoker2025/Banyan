@@ -40,6 +40,8 @@ export async function api<T>(
   if (init?.json !== undefined) {
     headers.set('content-type', 'application/json')
     body = JSON.stringify(init.json)
+  } else if (body instanceof FormData) {
+    // let the browser set the multipart boundary; only auth is added
   }
   const res = await fetch(path, { ...init, headers, body })
   if (res.status === 401) {

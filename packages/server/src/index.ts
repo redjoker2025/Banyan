@@ -74,9 +74,22 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     await openVault(rt, vaultPath, true)
   }
 
-  // serve the built web client (SPA) — dist lives in ../web/dist
-  const here = path.dirname(fileURLToPath(import.meta.url))
-  const distDir = path.resolve(here, '../../web/dist')
+  // serve the built web client (SPA). Resolution order (first existing wins):
+  //   1. $BANYAN_CLIENT_DIST            — explicit override
+  //   2. ../client-dist                 — npm package layout (dist/index.mjs)
+  //   3. ../../web/dist                 — repository layout (packages/server/src)
+  // A missing directory degrades to a 503 page; a warning is logged below.
+  const hereDir = path.dirname(fileURLToPath(import.meta.url))
+  const distCandidates = [
+    process.env.BANYAN_CLIENT_DIST,
+    path.resolve(hereDir, '../client-dist'),
+    path.resolve(hereDir, '../../web/dist'),
+  ].filter((dir): dir is string => typeof dir === 'string' && dir.length > 0)
+  const distDir = distCandidates.find((dir) => existsSync(dir)) ?? distCandidates[distCandidates.length - 1]!
+  if (!existsSync(distDir)) {
+    // eslint-disable-next-line no-console
+    console.warn(`[banyan] WARNING: web client directory not found — looked in:\n  ${distCandidates.join('\n  ')}`)
+  }
   serveWebDist(app, distDir)
 
   const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: args.port })

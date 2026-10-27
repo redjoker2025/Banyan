@@ -257,6 +257,23 @@ export function createApp(rt: ServerRuntime, upgradeWebSocket: UpgradeWS): Hono 
 
   // --- WebSocket: realtime refresh (§4.3); auth handled by the middleware above ---
   const clients = new Set<WSContext>()
+  // dynamic route registration for server plugins. Hono's RegExpRouter
+  // compiles its match cache on the first request and ignores routes added
+  // afterwards — plugin routes are registered at enable-time, i.e. often
+  // after startup traffic, so they are dispatched from a lookup table
+  // behind a wildcard route registered here at boot.
+  const pluginRoutes = new Map<string, (req: Request) => Response | Promise<Response>>()
+  rt.routeRegistrar = (method, routePath, handler) => {
+    pluginRoutes.set(`${method.toUpperCase()} ${routePath}`, handler)
+  }
+  app.all('/api/plugins/:id/*', (c) => {
+    const pathname = new URL(c.req.url).pathname
+    const handler = pluginRoutes.get(`${c.req.method.toUpperCase()} ${pathname}`)
+    if (!handler) {
+      return c.json({ error: 'E_NOT_FOUND', message: `no plugin route: ${c.req.method} ${pathname}` }, 404)
+    }
+    return handler(c.req.raw)
+  })
   app.get(
     '/ws',
     upgradeWebSocket(() => ({

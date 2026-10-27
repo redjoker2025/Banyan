@@ -45,7 +45,7 @@ banyan web --vault D:\my-notes
 git clone git@github.com:redjoker2025/Banyan.git
 cd Banyan
 pnpm install
-pnpm test          # 72 个测试（内核冒烟 / 服务端 / 插件管理器）
+pnpm test          # 73 个测试（内核冒烟 / 服务端 / 插件管理器 / docx 插件往返）
 pnpm --filter @banyan/web build
 pnpm web -- --vault D:\my-notes
 # 前端开发模式：pnpm dev（服务端）+ pnpm dev:web（Vite 热更）
@@ -69,10 +69,14 @@ pnpm web -- --vault D:\my-notes
 | 反向链接 | 右侧面板展示 `[[wiki]]` 与 Markdown 链接图 |
 | 标签聚合 | 聚合 frontmatter `tags`，点击标签过滤笔记 |
 | 今日笔记 | 命令「打开/创建今日笔记」→ `YYYY-MM-DD.md` |
+| Word 导入/导出 | `.docx` ↔ Markdown 双向转换：读用 [mammoth](https://github.com/mwilliamson/mammoth.js)（BSD-2-Clause）、写用 [docx](https://github.com/dolanmiu/docx)（MIT），基于 0.2.0 新增的插件 HTTP 路由扩展点 |
 | 冲突演示 A/B | 演示 `provides` 冲突：同 key 同时启用 → 409 指名双方 |
 | 越权演示 | 演示 `net.domains` 越权 → 拦截并写入 `audit.jsonl` |
 
 插件如何编写？见 [docs/dev/plugin-spec.md](docs/dev/plugin-spec.md)。
+**第三方依赖声明**：官方插件大量使用了 [mammoth.js](https://github.com/mwilliamson/mammoth.js)
+（.docx → HTML/Markdown，BSD-2-Clause）与 [docx](https://github.com/dolanmiu/docx)
+（Markdown 子集 → .docx，MIT），二者随 npm 包一并打包分发，在此致谢。
 
 <p align="center">
   <img src="docs/dev/images/ui-plugins-drawer.png" alt="插件管理" width="640" />

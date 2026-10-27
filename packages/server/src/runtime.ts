@@ -31,6 +31,8 @@ export interface ServerRuntime {
   metadataDir: string | null
   /** latest `plugin.state` data payloads per plugin, replayed to new WS clients */
   pluginDataSnapshot: Record<string, Record<string, unknown>>
+  /** dynamic HTTP route registration for plugins (wired to the Hono app) */
+  routeRegistrar: ((method: string, routePath: string, handler: (req: Request) => Response | Promise<Response>) => void) | null
   broadcast(event: WsEvent): void
 }
 
@@ -55,11 +57,12 @@ export function createRuntime(ctx: Context, token: string, broadcast: (event: Ws
   ctx.set('vault', capabilityStub('vault'))
   ctx.set('graph', capabilityStub('graph'))
   ctx.set('net', capabilityStub('net'))
+  ctx.set('http', capabilityStub('http'))
   ctx.set('pipeline', {
     save: (listener: unknown) => ctx.on('pipeline/save', listener as never),
   })
   ctx.set('broadcast', (event: { type: string; payload: Record<string, unknown> }) => broadcast(event as WsEvent))
-  return { ctx, token, vault: null, index: null, graph: null, settings: null, journal: null, plugins: null, metadataDir: null, pluginDataSnapshot: {}, broadcast }
+  return { ctx, token, vault: null, index: null, graph: null, settings: null, journal: null, plugins: null, metadataDir: null, pluginDataSnapshot: {}, routeRegistrar: null, broadcast } as ServerRuntime
 }
 
 /**
@@ -126,13 +129,40 @@ export async function openVault(rt: ServerRuntime, vaultRoot: string, reusePersi
     audit: new AuditLog(path.join(metaDir, 'audit.jsonl')),
     config,
     broadcast: (event) => rt.broadcast(event as WsEvent),
-    pluginsDirs: [path.join(metaDir, 'installed'), path.resolve(here(), '../../../plugins')],
+    pluginsDirs: [path.join(metaDir, 'installed'), ...pluginsCandidates()],
     logger: rt.ctx.logger,
+    registerRoute: (pluginId, method, subPath, handler) => {
+      const full = `/api/plugins/${pluginId}${subPath.startsWith('/') ? subPath : `/${subPath}`}`
+      rt.routeRegistrar?.(method, full, (req) => {
+        // disable-gate: routes of a disabled plugin answer 409 instead of
+        // leaking to dead code (re-enabling revives them automatically)
+        if (!rt.plugins?.isEnabled(pluginId)) {
+          return new Response(
+            JSON.stringify({ error: 'E_PLUGIN_DISABLED', message: `plugin "${pluginId}" is disabled` }),
+            { status: 409, headers: { 'content-type': 'application/json' } },
+          )
+        }
+        return handler(req)
+      })
+    },
+    isPluginActive: (pluginId) => rt.plugins?.isEnabled(pluginId) ?? false,
   })
   await plugins.init()
   rt.plugins = plugins
 
   rt.ctx.logger.info(`vault opened: ${vaultRoot}`)
+}
+
+/** plugin directories bundled with the app (npm layout first, repo layout second) */
+function pluginsCandidates(): string[] {
+  const hereDir = here()
+  return [path.resolve(hereDir, '../plugins'), path.resolve(hereDir, '../../../plugins')].filter((dir) => {
+    try {
+      return statSync(dir).isDirectory()
+    } catch {
+      return false
+    }
+  })
 }
 
 /** server package directory, resolved lazily for plugin dir layout */

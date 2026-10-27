@@ -14,10 +14,28 @@ export interface NetService {
   fetch(url: string, init?: RequestInit): Promise<Response>
 }
 
+/**
+ * HTTP route registration for server plugins (M2). Routes are namespaced
+ * under `/api/plugins/<plugin-id>` by the host; handlers receive the raw
+ * Web-standard `Request` and return a `Response`. Routes registered by a
+ * disabled plugin answer 409 until it is enabled again.
+ */
+export type PluginRouteHandler = (req: Request) => Response | Promise<Response>
+
+export interface HttpService {
+  /**
+   * register a route relative to `/api/plugins/<plugin-id>`. The host owns
+   * the lifecycle: while the plugin is disabled its routes answer 409, so
+   * there is no manual dispose to track.
+   */
+  registerRoute(method: string, subPath: string, handler: PluginRouteHandler): void
+}
+
 export interface PluginCapabilities {
   vault: VaultService
   graph: GraphService
   net: NetService
+  http: HttpService
 }
 
 function denied(manifest: BanyanManifest, action: string, required: string, detail?: string): never {
@@ -47,6 +65,7 @@ export function createCapabilities(
   host: { vault: VaultService; graph: GraphService },
   audit: AuditLog,
   netFetch: typeof fetch,
+  http: HttpService,
 ): PluginCapabilities {
   const { permissions } = manifest
   const deny = (action: string, required: string, detail?: string): never => {
@@ -70,6 +89,10 @@ export function createCapabilities(
     async delete(rel: string) {
       if (!matchAnyGlob(rel, permissions.fs.globs)) deny('vault.delete', rel)
       return host.vault.delete(rel)
+    },
+    async exists(rel: string) {
+      if (!matchAnyGlob(rel, permissions.fs.globs)) deny('vault.exists', rel)
+      return host.vault.exists(rel)
     },
   }
 
@@ -100,7 +123,7 @@ export function createCapabilities(
     },
   }
 
-  return { vault, graph, net }
+  return { vault, graph, net, http }
 }
 
 /** Re-export for typing convenience in server wiring */

@@ -50,6 +50,8 @@ export interface VaultService {
   write(path: string, content: string): Promise<void>
   list(path?: string): Promise<NoteEntry[]>
   delete(path: string): Promise<void>
+  /** true when the path exists and is a Markdown note file */
+  exists(path: string): Promise<boolean>
 }
 
 /** `ctx.index` — FTS5 full-text search over titles + bodies */

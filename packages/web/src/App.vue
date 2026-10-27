@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useAppStore, type SearchHit } from './stores/app'
-import { api } from './api'
+import { api, getToken } from './api'
 import { installPluginHost, activateEnabledClientPlugins } from './pluginHost'
 import FileTree from './components/FileTree.vue'
 import EditorPane from './components/EditorPane.vue'
@@ -45,6 +45,7 @@ const pluginApi = {
   openNote: (path: string) => store.openNote(path),
   apiFetch: <T,>(path: string, init?: Parameters<typeof api<T>>[1]) => api<T>(path, init),
   onNoteChange: (cb: () => void) => store.addNoteListener(cb),
+  getToken,
 }
 
 async function runCommand(cmd: { run: (api: unknown) => void | Promise<void> }) {

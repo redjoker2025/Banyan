@@ -171,3 +171,43 @@ Cordis 的服务注册表是全局的（`ctx.plugin()` 挂载时不再继承调�
 不存在的路径（验收中发现 backlinks 面板为空）。最终语义：先按相对路径解析；
 若结果不在 vault 中，则以 basename 在全库匹配（Obsidian 风格）；仍无则保留
 相对解析结果。Markdown 链接与 `[[dir/name]]` 同样适用该回退。
+
+## D14 · 插件 HTTP 路由用「通配分发器 + 查表」而非动态 addRoute（2026-10-27，0.2.0）
+
+**关联**：§3.4 ctx.http
+
+docx 插件需要自有 HTTP 路由（导入/导出），宿主新增能力键 `http`。
+第一版实现直接 `app.on(method, path, handler)` 动态注册，实测 0.2.0 安装产物
+（tarball 真实安装）时插件路由 404：**Hono 的 RegExpRouter 在第一个请求到达时
+编译路由缓存，之后动态 addRoute 的路由不会进缓存**。服务器一启动就有首页请求
+触发编译，而插件路由注册发生在启用时（必然晚于首次请求），因此永远 404；
+测试环境全绿是因为所有请求都发生在注册之后——正是「测试通过 ≠ 产物正确」的
+典型案例。
+
+最终方案：宿主启动时注册一次通配路由 `app.all('/api/plugins/:id/*')`，请求按
+`method + pathname` 在运行时 Map 中查表分发。附带收益：未注册的路由返回结构化
+`404 E_NOT_FOUND` 而非 Hono 默认空 404；`/api/plugins/<id>/` 命名空间从机制上
+不可被插件逃逸。
+
+## D15 · vault.exists 接口化（2026-10-27，0.2.0）
+
+**关联**：§3.1 ctx.vault
+
+docx 导入需要「重名 409」语义，此前 VaultService 只有 read/write/list/delete。
+将 `exists(path): Promise<boolean>` 纳入 `@banyan/core` 的 VaultService 契约与
+权限代理（fs.globs 逐调用校验），而不是让插件 read + try/catch 探测——后者
+会把正常探测记成错误路径，且对大文件无谓读全文。
+
+## D16 · npm 产物预编译插件 entry 并注入 createRequire banner（2026-10-27，0.2.0）
+
+**关联**：scripts/build-npm.mjs
+
+npm 发布形态下没有 tsx，插件 server entry（.ts）必须预编译为 .mjs；mammoth/docx
+等依赖 bundle 进产物。CJS 库内部对 Node 内置模块的 `require()` 在 ESM 输出中
+会被 esbuild 包成 `__require` shim，运行时抛
+`Dynamic require of "url" is not supported`（tarball 真实安装实测发现）。
+修复：预编译时统一注入 banner
+`import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);`
+与主 bundle 保持一致。另：`file:` 目录依赖安装（npm 仅建 junction）无法替代
+tarball 真实安装做发布前验证——首次 0.2.0 验证即因 junction 直接执行了构建
+暂存目录而漏测。

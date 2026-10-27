@@ -7,7 +7,9 @@ import { parseManifest, PluginManagerError, HOST_API_VERSION, checkApiCompat } f
 import type { BanyanManifest } from './manifest.ts'
 import { AuditLog } from './audit.ts'
 import { createCapabilities } from './proxy.ts'
+import type { PluginRouteHandler } from './proxy.ts'
 import { checkConflicts } from './conflict.ts'
+
 
 export interface InstalledPlugin {
   manifest: BanyanManifest
@@ -49,6 +51,19 @@ export interface ManagerOptions {
   /** directories scanned for plugins, in order; earlier wins on id clash */
   pluginsDirs: string[]
   logger: { info(msg: string, meta?: object): void; warn(msg: string, meta?: object): void }
+  /**
+   * Host-provided HTTP route registration. The host namespaces routes under
+   * `/api/plugins/<plugin-id>` and is responsible for auth middleware; the
+   * returned wrapped handler answers 409 while the plugin is disabled.
+   */
+  registerRoute(
+    pluginId: string,
+    method: string,
+    subPath: string,
+    handler: PluginRouteHandler,
+  ): void
+  /** whether a plugin's routes are currently active (for the disable gate) */
+  isPluginActive(pluginId: string): boolean
 }
 
 interface Mounted {
@@ -249,6 +264,11 @@ export class PluginManager {
       { vault: this.opts.host.vault, graph: this.opts.host.graph },
       this.opts.audit,
       this.opts.host.netFetch,
+      {
+        registerRoute: (method, subPath, handler) => {
+          this.opts.registerRoute(inst.manifest.id, method, subPath, handler)
+        },
+      },
     )
 
     const wrapped: {

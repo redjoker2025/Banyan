@@ -1,0 +1,18 @@
+{
+  "id": "banyan.docx",
+  "name": "Word 文档 (docx)",
+  "version": "0.1.0",
+  "banyanApi": "^0.1",
+  "description": "导入 .docx 为 Markdown 笔记，或将当前笔记导出为 .docx（可读可写）",
+  "inject": ["http", "vault", "logger"],
+  "provides": [],
+  "permissions": {
+    "fs": { "globs": ["**"] },
+    "net": { "domains": [] },
+    "exec": false
+  },
+  "entry": {
+    "server": "./server/index.ts",
+    "client": "./client/index.js"
+  }
+}

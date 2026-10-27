@@ -1,6 +1,6 @@
 {
   "name": "@banyan/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Banyan core: ctx key contracts, typed events, kernel extensions over vendored Cordis",
   "license": "MIT",
   "type": "module",
