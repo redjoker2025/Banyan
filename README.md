@@ -136,3 +136,13 @@ registration it made.
 ```powershell
 npx banyan-notes web --vault D:\my-notes
 ```
+
+---
+
+<div align="center">
+
+🌳 更多小工具 → **[redjoker2025](https://github.com/redjoker2025)**
+
+如果榕帮你管好了笔记，点个 ⭐ 就是最好的浇灌
+
+</div>
